@@ -15,7 +15,9 @@ export const createCandidate = async (req, res) => {
       });
     }
 
-    // 🔥 Check duplicate
+    const userId = req.user.id; // 🔥 recruiter from auth
+
+    // 🔥 Check duplicate (GLOBAL email uniqueness already enforced)
     const existing = await prisma.candidate.findUnique({
       where: { email }
     });
@@ -26,7 +28,6 @@ export const createCandidate = async (req, res) => {
       });
     }
 
-    // 🔥 Cloudinary file URL
     const fileUrl = req.file.path;
 
     // 🔥 Download PDF
@@ -36,10 +37,10 @@ export const createCandidate = async (req, res) => {
 
     const buffer = new Uint8Array(response.data);
 
-    // 🔥 Extract text from PDF
+    // 🔥 Extract text
     const extractedText = await extractTextFromPDF(buffer);
 
-    // 🔥 Save to DB
+    // 🔥 Save candidate (IMPORTANT: add createdBy)
     const candidate = await prisma.candidate.create({
       data: {
         name,
@@ -49,7 +50,8 @@ export const createCandidate = async (req, res) => {
         resume: fileUrl,
         parsedResumeText: extractedText,
         skills: "",
-        experience: 0
+        experience: 0,
+        createdBy: BigInt(userId)
       }
     });
 
@@ -67,23 +69,25 @@ export const createCandidate = async (req, res) => {
 };
 
 //
-// 📄 GET ALL CANDIDATES
+// 📄 GET ALL CANDIDATES (RECRUITER SCOPED)
 //
 export const getCandidates = async (req, res) => {
   try {
-    const { search, skills, experience } = req.query;
+    const { search, skills } = req.query;
+
+    const userId = req.user.id; // 🔥 important
 
     const candidates = await prisma.candidate.findMany({
       where: {
+        createdBy: BigInt(userId), // 🔥 MULTI-TENANT FIX
+
         ...(skills && {
           skills: {
             contains: skills,
             mode: "insensitive"
           }
         }),
-        ...(experience && {
-          experience: Number(experience)
-        }),
+
         ...(search && {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
@@ -93,9 +97,11 @@ export const getCandidates = async (req, res) => {
           ]
         })
       },
+
       orderBy: {
         createdOn: "desc"
       },
+
       include: {
         _count: {
           select: {
@@ -118,16 +124,24 @@ export const getCandidates = async (req, res) => {
 };
 
 //
-// 🔍 GET CANDIDATE BY ID
+// 🔍 GET CANDIDATE BY ID (SECURED)
 //
 export const getCandidateById = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    const candidate = await prisma.candidate.findUnique({
-      where: { id: BigInt(id) },
+    const candidate = await prisma.candidate.findFirst({
+      where: {
+        id: BigInt(id),
+        createdBy: BigInt(userId) // 🔥 SECURITY
+      },
       include: {
-        submissions: true
+        submissions: {
+          include: {
+            job: true
+          }
+        }
       }
     });
 
@@ -150,11 +164,12 @@ export const getCandidateById = async (req, res) => {
 };
 
 //
-// ✏️ UPDATE CANDIDATE (OPTIONAL RESUME REUPLOAD)
+// ✏️ UPDATE CANDIDATE (SECURED)
 //
 export const updateCandidate = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
     const {
       name,
@@ -174,7 +189,6 @@ export const updateCandidate = async (req, res) => {
       ...(experience !== undefined && { experience: Number(experience) })
     };
 
-    // 🔥 If new resume uploaded
     if (req.file) {
       const fileUrl = req.file.path;
 
@@ -190,8 +204,11 @@ export const updateCandidate = async (req, res) => {
       updateData.parsedResumeText = extractedText;
     }
 
-    const candidate = await prisma.candidate.update({
-      where: { id: BigInt(id) },
+    const candidate = await prisma.candidate.updateMany({
+      where: {
+        id: BigInt(id),
+        createdBy: BigInt(userId) // 🔥 SECURITY
+      },
       data: updateData
     });
 
@@ -209,14 +226,18 @@ export const updateCandidate = async (req, res) => {
 };
 
 //
-// ❌ DELETE CANDIDATE
+// ❌ DELETE CANDIDATE (SECURED)
 //
 export const deleteCandidate = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    await prisma.candidate.delete({
-      where: { id: BigInt(id) }
+    await prisma.candidate.deleteMany({
+      where: {
+        id: BigInt(id),
+        createdBy: BigInt(userId) // 🔥 SECURITY
+      }
     });
 
     return res.status(200).json({

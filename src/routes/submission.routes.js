@@ -5,10 +5,11 @@ import {
   getSubmissions,
   getSubmissionById,
   updateSubmissionStatus,
-  deleteSubmission
+  deleteSubmission,
+    createCandidateWithSubmission
 } from "../controllers/submission.controller.js";
 import { evaluateOnly } from "../controllers/ats.controller.js";
-
+import { upload } from "../middleware/upload.middleware.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 
@@ -44,7 +45,8 @@ router.post(
   "/",
   authMiddleware,
   requireRole("ADMIN", "RECRUITER"),
-  createSubmission
+  upload.single("resume"),
+  createCandidateWithSubmission
 );
 
 //
@@ -76,7 +78,10 @@ router.post(
   "/evaluate",
   authMiddleware,
   requireRole("ADMIN", "RECRUITER"),
+  upload.single("resume"), // 🔥 Accept resume file for evaluation
   evaluateOnly
 );
+
+
 
 export default router;

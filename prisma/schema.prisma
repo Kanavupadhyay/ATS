@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,10 +7,87 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Client {
+  id          Int          @id @default(autoincrement())
+  name        String
+  industry    String
+  createdOn   DateTime     @default(now())
+  jobs        Job[]
+  submissions Submission[]
 
-//
-// ENUMS
-//
+  @@map("clients")
+}
+
+model Job {
+  id          BigInt       @id @default(autoincrement())
+  clientId    Int
+  createdBy   BigInt
+  title       String
+  description String
+  skills      String
+  location    String
+  status      JobStatus
+  experience  Int?
+  createdOn   DateTime     @default(now())
+  client      Client       @relation(fields: [clientId], references: [id])
+  user        User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@map("jobs")
+}
+
+model Candidate {
+  id               BigInt       @id @default(autoincrement())
+  createdBy        BigInt
+  name             String
+  email            String       @unique
+  mobNo            String
+  currentCompany   String
+  resume           String
+  parsedResumeText String
+  skills           String
+  experience       Int
+  createdOn        DateTime     @default(now())
+  user             User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  submissions      Submission[]
+
+  @@map("candidates")
+}
+
+model User {
+  id          BigInt       @id @default(autoincrement())
+  name        String
+  email       String       @unique
+  password    String
+  mobNo       String
+  role        UserRole
+  createdOn   DateTime     @default(now())
+  candidates  Candidate[]
+  jobs        Job[]
+  submissions Submission[]
+
+  @@map("users")
+}
+
+model Submission {
+  id          BigInt           @id @default(autoincrement())
+  clientId    Int
+  jobId       BigInt
+  candidateId BigInt
+  userId      BigInt
+  status      SubmissionStatus
+  score       Decimal          @db.Decimal(5, 2)
+  comments    String
+  createdOn   DateTime         @default(now())
+  updatedOn   DateTime         @updatedAt
+  candidate   Candidate        @relation(fields: [candidateId], references: [id])
+  client      Client           @relation(fields: [clientId], references: [id])
+  job         Job              @relation(fields: [jobId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+
+  @@map("submissions")
+}
+
 enum JobStatus {
   OPEN
   CLOSED
@@ -36,103 +107,4 @@ enum UserRole {
   ADMIN
   RECRUITER
   USER
-}
-
-
-
-//
-// CLIENT
-//
-model Client {
-  id         Int      @id @default(autoincrement())
-  name       String
-  industry   String
-  createdOn  DateTime @default(now())
-
-  jobs       Job[]
-  submissions Submission[]
-
-  @@map("clients")
-}
-
-//
-// JOBS
-//
-model Job {
-  id          BigInt   @id @default(autoincrement())
-  clientId    Int
-  title       String
-  description String
-  skills      String
-  location    String
-  status      JobStatus
-  experience  Int?
-  createdOn   DateTime @default(now())
-
-  client      Client   @relation(fields: [clientId], references: [id])
-  submissions Submission[]
-
-  @@map("jobs")
-}
-
-//
-// CANDIDATES
-//
-model Candidate {
-  id                 BigInt   @id @default(autoincrement())
-  name               String
-  email              String   @unique
-  mobNo              String
-  currentCompany     String
-  resume             String
-  parsedResumeText   String
-  skills             String
-  experience         Int
-  createdOn          DateTime @default(now())
-
-  submissions        Submission[]
-
-  @@map("candidates")
-}
-
-//
-// USERS (system users / recruiters / admins)
-//
-model User {
-  id        BigInt   @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  mobNo     String
-  role      UserRole
-  createdOn DateTime @default(now())
-
-  submissions Submission[]
-
-  @@map("users")
-}
-
-//
-// SUBMISSIONS (core mapping table)
-//
-model Submission {
-  id           BigInt            @id @default(autoincrement())
-  clientId     Int
-  jobId        BigInt
-  candidateId  BigInt
-  userId       BigInt
-
-  status       SubmissionStatus
-  score        Decimal          @db.Decimal(5, 2)
-  comments     String
-
-  createdOn    DateTime @default(now())
-  updatedOn    DateTime @updatedAt
-
-  client       Client    @relation(fields: [clientId], references: [id])
-  job          Job       @relation(fields: [jobId], references: [id])
-  candidate    Candidate @relation(fields: [candidateId], references: [id])
-  user         User      @relation(fields: [userId], references: [id])
-
-  @@map("submissions")
 }

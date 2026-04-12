@@ -69,13 +69,23 @@ export const getClientById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const userId = BigInt(req.user.id); // 🔥 important
+
     const client = await prisma.client.findUnique({
       where: {
         id: Number(id),
       },
       include: {
-        jobs: true,
-        submissions: true,
+        jobs: {
+          where: {
+            createdBy: userId, // ✅ filter by recruiter
+          },
+        },
+        submissions: {
+          where: {
+            userId: userId, // optional but recommended
+          },
+        },
       },
     });
 

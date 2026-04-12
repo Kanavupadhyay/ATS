@@ -1,7 +1,7 @@
 import prisma from "../config/db.js";
 
 //
-// 🆕 CREATE JOB
+// 🆕 CREATE JOB (RECRUITER OWNED)
 //
 export const createJob = async (req, res) => {
   try {
@@ -15,6 +15,8 @@ export const createJob = async (req, res) => {
       experience
     } = req.body;
 
+    const userId = req.user.id; // 🔥 recruiter from auth
+
     if (!clientId || !title || !description || !skills || !location || !status) {
       return res.status(400).json({
         message: "Missing required fields"
@@ -24,6 +26,8 @@ export const createJob = async (req, res) => {
     const job = await prisma.job.create({
       data: {
         clientId: Number(clientId),
+        createdBy: BigInt(userId), // 🔥 IMPORTANT FIX
+
         title,
         description,
         skills,
@@ -47,23 +51,26 @@ export const createJob = async (req, res) => {
 };
 
 //
-// 📄 GET ALL JOBS
-// Supports filters: clientId, status, location, search
+// 📄 GET ALL JOBS (RECRUITER SCOPED)
 //
 export const getJobs = async (req, res) => {
   try {
-    const { clientId, status, location, search } = req.query;
+    const { status, location, search } = req.query;
+    const userId = req.user.id;
 
     const jobs = await prisma.job.findMany({
       where: {
-        ...(clientId && { clientId: Number(clientId) }),
+        createdBy: BigInt(userId), // 🔥 IMPORTANT SECURITY FIX
+
         ...(status && { status }),
+
         ...(location && {
           location: {
             contains: location,
             mode: "insensitive"
           }
         }),
+
         ...(search && {
           OR: [
             {
@@ -77,13 +84,21 @@ export const getJobs = async (req, res) => {
                 contains: search,
                 mode: "insensitive"
               }
+            },
+            {
+              description: {
+                contains: search,
+                mode: "insensitive"
+              }
             }
           ]
         })
       },
+
       orderBy: {
         createdOn: "desc"
       },
+
       include: {
         client: true,
         _count: {
@@ -107,19 +122,25 @@ export const getJobs = async (req, res) => {
 };
 
 //
-// 🔍 GET JOB BY ID
+// 🔍 GET JOB BY ID (SECURED)
 //
 export const getJobById = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    const job = await prisma.job.findUnique({
+    const job = await prisma.job.findFirst({
       where: {
-        id: BigInt(id)
+        id: BigInt(id),
+        createdBy: BigInt(userId) // 🔥 SECURITY FIX
       },
       include: {
         client: true,
-        submissions: true
+        submissions: {
+          include: {
+            candidate: true
+          }
+        }
       }
     });
 
@@ -142,11 +163,12 @@ export const getJobById = async (req, res) => {
 };
 
 //
-// ✏️ UPDATE JOB
+// ✏️ UPDATE JOB (SECURED)
 //
 export const updateJob = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
     const {
       title,
@@ -157,9 +179,10 @@ export const updateJob = async (req, res) => {
       experience
     } = req.body;
 
-    const job = await prisma.job.update({
+    const job = await prisma.job.updateMany({
       where: {
-        id: BigInt(id)
+        id: BigInt(id),
+        createdBy: BigInt(userId) // 🔥 SECURITY FIX
       },
       data: {
         ...(title && { title }),
@@ -185,15 +208,17 @@ export const updateJob = async (req, res) => {
 };
 
 //
-// ❌ DELETE JOB
+// ❌ DELETE JOB (SECURED)
 //
 export const deleteJob = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    await prisma.job.delete({
+    await prisma.job.deleteMany({
       where: {
-        id: BigInt(id)
+        id: BigInt(id),
+        createdBy: BigInt(userId) // 🔥 SECURITY FIX
       }
     });
 

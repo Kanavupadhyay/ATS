@@ -5,7 +5,7 @@ import { createUser, findUserByEmail } from "../models/user.model.js";
 export const register = async (req, res) => {
   console.log("Registering user:", req.body);
 
-  const { name, email, password, role } = req.body;
+  const { name, email, password, mobNo, role, createdOn } = req.body;
 
   const existing = await findUserByEmail(email); // ✅ FIX
   if (existing) {
@@ -18,7 +18,9 @@ export const register = async (req, res) => {
     name,
     email,
     password: hashedPassword,
+    mobNo,
     role: role || "RECRUITER",
+    createdOn
   });
 
   // remove password before sending
@@ -44,7 +46,7 @@ export const login = async (req, res) => {
   }
 
   const token = jwt.sign(
-    { userId: user.id, role: user.role },
+    { userId: user.id.toString(), role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );

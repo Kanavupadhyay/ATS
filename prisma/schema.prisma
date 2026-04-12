@@ -13,25 +13,126 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+//
+// ENUMS
+//
+enum JobStatus {
+  OPEN
+  CLOSED
+  DRAFT
+}
+
+enum SubmissionStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEW
+  REJECTED
+  OFFERED
+  HIRED
+}
+
+enum UserRole {
+  ADMIN
+  RECRUITER
+  USER
+}
+
+
+
+//
+// CLIENT
+//
+model Client {
+  id         Int      @id @default(autoincrement())
+  name       String
+  industry   String
+  createdOn  DateTime @default(now())
+
+  jobs       Job[]
+  submissions Submission[]
+
+  @@map("clients")
+}
+
+//
+// JOBS
+//
+model Job {
+  id          BigInt   @id @default(autoincrement())
+  clientId    Int
+  title       String
+  description String
+  skills      String
+  location    String
+  status      JobStatus
+  experience  Int?
+  createdOn   DateTime @default(now())
+
+  client      Client   @relation(fields: [clientId], references: [id])
+  submissions Submission[]
+
+  @@map("jobs")
+}
+
+//
+// CANDIDATES
+//
+model Candidate {
+  id                 BigInt   @id @default(autoincrement())
+  name               String
+  email              String   @unique
+  mobNo              String
+  currentCompany     String
+  resume             String
+  parsedResumeText   String
+  skills             String
+  experience         Int
+  createdOn          DateTime @default(now())
+
+  submissions        Submission[]
+
+  @@map("candidates")
+}
+
+//
+// USERS (system users / recruiters / admins)
+//
 model User {
-  id        Int      @id @default(autoincrement())
+  id        BigInt   @id @default(autoincrement())
   name      String
   email     String   @unique
   password  String
-  role      String
-  createdAt DateTime @default(now())
+  mobNo     String
+  role      UserRole
+  createdOn DateTime @default(now())
 
-  jobs      Job[]
+  submissions Submission[]
+
+  @@map("users")
 }
 
-model Job {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  location    String?
-  salaryRange String?
-  createdBy   Int
-  createdAt   DateTime @default(now())
+//
+// SUBMISSIONS (core mapping table)
+//
+model Submission {
+  id           BigInt            @id @default(autoincrement())
+  clientId     Int
+  jobId        BigInt
+  candidateId  BigInt
+  userId       BigInt
 
-  user        User     @relation(fields: [createdBy], references: [id])
+  status       SubmissionStatus
+  score        Decimal          @db.Decimal(5, 2)
+  comments     String
+
+  createdOn    DateTime @default(now())
+  updatedOn    DateTime @updatedAt
+
+  client       Client    @relation(fields: [clientId], references: [id])
+  job          Job       @relation(fields: [jobId], references: [id])
+  candidate    Candidate @relation(fields: [candidateId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("submissions")
 }

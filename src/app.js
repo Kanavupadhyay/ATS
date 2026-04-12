@@ -4,6 +4,9 @@ import cors from "cors";
 
 import authRoutes from "./routes/auth.routes.js";
 import jobRoutes from "./routes/job.routes.js";
+import candidateRoutes from "./routes/candidate.routes.js";
+import submissionRoutes from "./routes/submission.routes.js";
+import clientRoutes from "./routes/client.routes.js";
 
 dotenv.config();
 
@@ -18,15 +21,35 @@ app.use((req, res, next) => {
   next();
 });
 
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
+// ROUTES
+
 //auth routes
 app.use("/auth", authRoutes);
 
 //job routes
 app.use("/jobs", jobRoutes);
 
+
+//candidate routes 
+app.use("/candidates", candidateRoutes);
+
+//submission routes 
+app.use("/submissions", submissionRoutes);
+
+//client routes
+app.use("/client", clientRoutes);
+
+
+
+//health check
 app.get("/", (req, res) => {
   res.send("ATS Backend Running");
 });
+
+
 
 // ❗ 404 handler MUST be LAST
 app.use((req, res) => {
